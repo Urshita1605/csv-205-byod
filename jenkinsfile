@@ -1,0 +1,68 @@
+pipeline {
+    agent any
+
+    environment {
+        TF_IN_AUTOMATION = "true"
+        TF_CLI_ARGS = "-no-color"
+        SSH_CRED_ID = "SSH_CRED_ID"
+        BRANCH_NAME = "main"  // Change to "dev" if your branch is dev
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo "Checking out code from repository..."
+                git branch: "${BRANCH_NAME}", 
+                    url: 'https://github.com/YOUR_USERNAME/YOUR_REPO.git'
+            }
+        }
+        
+        stage('Terraform Init') {
+            steps {
+                echo "Initializing Terraform..."
+                sh 'terraform init'
+            }
+        }
+
+        stage('Check Variables') {
+            steps {
+                echo "Checking variables file..."
+                sh 'cat ${BRANCH_NAME}.tfvars'
+            }
+        }
+
+        stage('Terraform Plan') {
+            steps {
+                echo "Running Terraform Plan..."
+                sh 'terraform plan -var-file=${BRANCH_NAME}.tfvars'
+            }
+        }
+
+        stage('Manual Approval') {
+            steps {
+                input message: 'Proceed with Terraform Apply?', 
+                      ok: 'Approve'
+            }
+        }
+
+        stage('Terraform Apply') {
+            steps {
+                echo "Applying Terraform changes..."
+                sh 'terraform apply -var-file=${BRANCH_NAME}.tfvars -auto-approve'
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "Pipeline completed successfully!"
+        }
+        failure {
+            echo "Pipeline failed!"
+        }
+        always {
+            echo "Cleaning up workspace..."
+            cleanWs()
+        }
+    }
+}
